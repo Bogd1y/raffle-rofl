@@ -1,38 +1,28 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 pragma abicoder v2;
 
-import "hardhat/console.sol";
 import "./Interface/IERC.sol";
 import "./Interface/WETH.sol";
-import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol"; //! mainet
 import "./Random.sol";
+import "./Gov.sol";
+
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
+import {IUniswapV2Router02} from "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 
-// import "../Interface/Abi.sol"; // * sepolia
-// import '@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol';
-// import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-// import "@uniswap/v3-sdk/contracts/interfaces/IUniswapV3Pool.sol";
-// import "@uniswap/v3-sdk/contracts/interfaces/IUniswapV3Quoter.sol";
-
-contract Raffle is VRFv2Consumer, AutomationCompatibleInterface {
+contract RaffleSep is VRFv2Consumer, AutomationCompatibleInterface {
   address public admin;
   address public impl;
 
   IERC20 public tokenContract;
   AggregatorV3Interface internal dataFeed;
 
-  //! SWAP ROUTER ADDRESS
-  address public constant routerAddress = 0xE592427A0AEce92De3Edee1F18E0157C05861564; // mainet
-  // address public constant routerAddress = 0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E; // sepolia
+  address public constant routerAddress = 0xC532a74256D3Db42D0Bf7a0400fEFDbad7694008; // sepolia
   // address outAdrress = 0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9; // WETH sepolia
-  // address outAdrress = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2; // WETH mainet
-  // address outAdrress = 0xdAC17F958D2ee523a2206206994597C13D831ec7; //! USDT mainet token address
-  // address outAdrress = 0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0; //* USDT sepolia token address
-  address outAdrress = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48; //! USDC mainet token address
-
-  ISwapRouter public immutable swapRouter = ISwapRouter(routerAddress);
+  address outAdrress = 0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8; // USDC sepolia
+  
+  IUniswapV2Router02 public immutable swapRouter = IUniswapV2Router02(routerAddress);
 
   struct PriceFeed {
     uint decimals;
@@ -52,12 +42,19 @@ contract Raffle is VRFv2Consumer, AutomationCompatibleInterface {
   event Deposit(address, uint);
   event Win(address, uint);
 
-  constructor(address consumerAddress) VRFv2Consumer(11366, consumerAddress) {
+  // MyGovernor(_token)
+  constructor(address coordinatorAddress) VRFv2Consumer(11065, coordinatorAddress) {
     admin = msg.sender;
     dataFeed = AggregatorV3Interface(0x986b5E1e1755e3C2440e960477f25201B0a8bbD4);
   }
 
   receive() external payable {}
+
+  // function _executeResult(uint[] memory values) internal override {
+  //   x = values[0]; 
+  //   y = values[1]; 
+  //   z = values[2]; 
+  // }
 
   function _onlyAdmin() internal override onlyAdmin{} 
   function _timeCheck() public view override {
@@ -68,7 +65,7 @@ contract Raffle is VRFv2Consumer, AutomationCompatibleInterface {
     require(msg.sender == admin, "You are not him!");
     _;
   }
-  
+
   function isAddressWhiteListed(address _address) public view returns(bool) {
     return availableTokens[_address];
   }
@@ -94,8 +91,10 @@ contract Raffle is VRFv2Consumer, AutomationCompatibleInterface {
   }
 
   function dep(address _tokenAddress, uint _amount) external {
+
     conectToToken(_tokenAddress);
     require(tokenContract.transferFrom(msg.sender, address(this), _amount), "Token transfer failed");
+
     if(potTotalValue == 0) {
       startTime = block.timestamp;
     }
@@ -113,27 +112,24 @@ contract Raffle is VRFv2Consumer, AutomationCompatibleInterface {
         /*uint80 answeredInRound*/
     ) = dataFeed.latestRoundData();
 
-    uint minOutPrice = uint(answer) * _amount / 10**18 / 10**priceFeeds[_tokenAddress].decimals; // 18 + 11 
+    uint minOutPrice = uint(answer) * _amount / 10**18 / 10**priceFeeds[_tokenAddress].decimals; // calc actucal price 
 
     require(minOutPrice != 0, "Your dep tooooo small");
-
     tokenContract.approve(address(swapRouter), _amount);
 
-    ISwapRouter.ExactInputSingleParams memory params =
-    ISwapRouter.ExactInputSingleParams({
-        tokenIn: _tokenAddress,
-        tokenOut: outAdrress,
-        fee: 3000,
-        recipient: address(this),
-        deadline: block.timestamp,
-        amountIn: _amount,
-        amountOutMinimum: minOutPrice,  
-        sqrtPriceLimitX96: 0
+    address[] memory path = new address[](2);
+    path[0] = _tokenAddress;
+    path[1] = outAdrress;
+    
+    uint[] memory amountOut = swapRouter.swapExactTokensForTokens({
+      amountIn: _amount,
+      amountOutMin: minOutPrice,
+      path: path,
+      to: address(this),
+      deadline: block.timestamp
     });
 
-    uint amountOut = swapRouter.exactInputSingle(params);
-
-    uint finalAmount = amountOut;
+    uint finalAmount = amountOut[1];
 
     userDepValue[count][msg.sender] += finalAmount;
     potTotalValue += finalAmount;
@@ -177,10 +173,11 @@ contract Raffle is VRFv2Consumer, AutomationCompatibleInterface {
       external
       view
       override
-      returns (bool upkeepNeeded, bytes memory /* performData */)
+      returns (bool upkeepNeeded, bytes memory performData)
   {
       upkeepNeeded = block.timestamp > startTime + timeToWait;
       // The checkData is defined when the Upkeep was registered.
+      return (upkeepNeeded, performData);
   }
 
   function getUserDepValue() public view returns(uint) {

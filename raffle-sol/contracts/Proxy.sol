@@ -15,12 +15,12 @@ contract Proxy {
   function initialize(address _newImpl) public {
     require(admin == msg.sender, "KUDA POLIZ ?");
     impl = _newImpl;
-
   }
+  
   function _delegate() private returns(bytes memory){
     (bool ok, bytes memory data ) = impl.delegatecall(msg.data);
-    return data;
     require(ok, "porazka :(");
+    return data;
   }
 
   fallback(bytes calldata) external payable returns(bytes memory) { 
