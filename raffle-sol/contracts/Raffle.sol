@@ -11,7 +11,7 @@ import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interf
 import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
 import {IUniswapV2Router02} from "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 
-contract RaffleSep is VRFv2Consumer, AutomationCompatibleInterface {
+contract Raffle is VRFv2Consumer, AutomationCompatibleInterface {
   address public admin;
   address public impl;
 

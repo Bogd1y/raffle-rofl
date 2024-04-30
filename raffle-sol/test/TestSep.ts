@@ -23,7 +23,7 @@ describe.only("RaffleSepolia", function () {
     const VRFCoordinatorMock = await viem.deployContract('VRFCoordinatorMock')
     const GovToken = await viem.deployContract('MyToken')
 
-    const RaffleContract = await viem.deployContract('RaffleSep', [VRFCoordinatorMock.address, GovToken.address])
+    const RaffleContract = await viem.deployContract('RaffleSep', [VRFCoordinatorMock.address])
     
     await RaffleContract.write.setNewCOORDINATOR([VRFCoordinatorMock.address])
     
