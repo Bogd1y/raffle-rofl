@@ -10,12 +10,12 @@ import { localhost } from 'viem/chains';
 import { sepolia } from 'viem/chains';
 
 export const config = createConfig({
-  chains: [sepolia],
-  // chains: [localhost],
+  // chains: [sepolia],
+  chains: [localhost],
   transports: {
     // [mainnet.id]: http('http://127.0.0.1:8545/'),
-    [sepolia.id]: http(),
-    // [localhost.id]: http(),
+    // [sepolia.id]: http(),
+    [localhost.id]: http(),
   },
   // connectors: [
   //   injected({target: 'metaMask'})

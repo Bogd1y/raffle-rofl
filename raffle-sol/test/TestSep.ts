@@ -9,6 +9,9 @@ import { ERC20_ABI } from "./ABI";
 import { ABI_UNI_SWAP_ROUTER_MAINNET } from "./ABI_SRA";
 import { abi as WETH_ABI } from "./WETH_ABI";
 import { keccak256 } from 'viem'
+import { mine, mineUpTo } from "@nomicfoundation/hardhat-network-helpers";
+import {increaseTo} from "./helpers/timeOPZ"
+import { setNextBlockTimestamp } from "@nomicfoundation/hardhat-network-helpers/dist/src/helpers/time";
 
 describe.only("RaffleSepolia", function () {
   async function deployOneYearLockFixture() {
@@ -21,7 +24,6 @@ describe.only("RaffleSepolia", function () {
     const testClient = await viem.getTestClient();
 
     const VRFCoordinatorMock = await viem.deployContract('VRFCoordinatorMock')
-    const GovToken = await viem.deployContract('MyToken')
 
     const RaffleContract = await viem.deployContract('RaffleSep', [VRFCoordinatorMock.address])
     
@@ -75,7 +77,7 @@ describe.only("RaffleSepolia", function () {
       ownerAddress,
       ethTokenContract,
       signers,
-      tokenContract
+      tokenContract,
     };
   }
   describe("Depping", function () {
@@ -373,66 +375,40 @@ describe.only("RaffleSepolia", function () {
     })
   })
   describe("Govern", function () {
-    // it("Should do", async function () {
-    //   const { publicClient, testClient, VRFCoordinatorMock, otherAccount, signers, RaffleContract, swapRouterContract, ethAddress, ethTokenContract, ownerAddress, raffleAddress } = await loadFixture(deployOneYearLockFixture)
+    it("nominal flow", async function () {
+      const { signers, RaffleContract, swapRouterContract, ethAddress, ethTokenContract, ownerAddress, raffleAddress } = await loadFixture(deployOneYearLockFixture)
 
-    //   const GovToken = await viem.deployContract('MyToken')
-    //   const GovC = await viem.deployContract("MyGovernor", [GovToken.address])
-
-    //   const proposeParams: [`0x${string}`[], bigint[], `0x${string}`[], string] = [
-    //     [ownerAddress, otherAccount.account.address],
-    //     [BigInt(1), BigInt(2)],
-    //     [ownerAddress, otherAccount.account.address],
-    //     "TEST"
-    //   ] 
+    try {
       
+      const proposalParams = [10n, 20n, 70n]        
+
+      await expect(RaffleContract.write.propose([proposalParams])).to.be.not.rejected
+
+      const proposalId =  await RaffleContract.read.hashProposal([proposalParams])
+
+      for (const signer of signers) {
+        if (signer.account.address == ownerAddress) continue
+
+        expect(RaffleContract.write.mint([signer.account.address, 101n])).to.be.not.rejected;
+
+        expect(RaffleContract.write.vote([proposalId, 1], {
+          account: signer.account
+        })).to.be.not.rejected
+
+      }
+
+      await expect(RaffleContract.write.executeVote([proposalId])).to.be.rejectedWith('Vote is still going')
+
+      await time.increase(await RaffleContract.read.voteDuration())      
       
-    //   await expect(GovC.write.propose(proposeParams)).to.be.not.rejected
+      await expect(RaffleContract.write.executeVote([proposalId])).to.be.not.rejected
+    } catch (error) {
+      console.log(error);
+            
+    }      
 
-    //   const proposalId =  await GovC.read.hashProposal([
-    //     [ownerAddress, otherAccount.account.address],
-    //     [BigInt(1), BigInt(2)],
-    //     [ownerAddress, otherAccount.account.address],
-    //     keccak256(new Uint8Array(Buffer.from("TEST")))
-    //   ])
-
-    //   for (let i = 0; i < signers.length; i++) {
-
-    //     await GovToken.write.mint([signers[i].account.address, BigInt(12)])
-
-    //     await expect(GovC.write.castVote([proposalId, 1], {
-    //       account: signers[i].account.address
-    //     })).to.be.not.rejected
-        
-    //   }
-
-              
-    //   expect((await GovC.read.proposalProposer([proposalId])).toLowerCase()).to.be.equal(ownerAddress)
-
-    //   console.log(await GovC.read.state([proposalId]));
-      
-    //   await time.increase(10000)
-    //   // console.log(await GovC.read.state([proposalId]));
-    //   console.log(await GovC.read.quorum([proposalId]));
-    //   await expect(GovC.write.queue(
-    //     [
-    //       [ownerAddress, otherAccount.account.address],
-    //       [BigInt(1), BigInt(2)],
-    //       [ownerAddress, otherAccount.account.address],
-    //       keccak256(new Uint8Array(Buffer.from("TEST")))
-    //     ]
-    //   )).to.be.not.rejected;
-
-    //   // await expect(GovC.write.execute([
-    //   //   [ownerAddress, otherAccount.account.address],
-    //   //   [BigInt(1), BigInt(2)],
-    //   //   [ownerAddress, otherAccount.account.address],
-    //   //   keccak256(new Uint8Array(Buffer.from("TEST")))
-    //   // ])).to.be.not.rejected
-    //   // console.log(det2);
-        
-        
-    // })
+    })
+    
   })
 
 });

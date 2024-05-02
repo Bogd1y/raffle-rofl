@@ -5,7 +5,6 @@ pragma abicoder v2;
 import "./Interface/IERC.sol";
 import "./Interface/WETH.sol";
 import "./Random.sol";
-import "./Gov.sol";
 
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";

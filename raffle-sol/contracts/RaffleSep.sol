@@ -4,17 +4,17 @@ pragma abicoder v2;
 
 // import "hardhat/console.sol";
 
-import "./Interface/IERC.sol";
-import "./Interface/WETH.sol";
+// import "./Interface/IERC.sol";
+// import "./Interface/WETH.sol";
 import "./Random.sol";  
-import "./Gov.sol";
+import "./MyGov.sol";  
 
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
 import {IUniswapV2Router02} from "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 
-contract RaffleSep is VRFv2Consumer, AutomationCompatibleInterface {
-  address public admin;
+contract RaffleSep is VRFv2Consumer, AutomationCompatibleInterface, MyGov {
+  // address public admin;
   address public impl;
 
   IERC20 public tokenContract;
@@ -37,9 +37,9 @@ contract RaffleSep is VRFv2Consumer, AutomationCompatibleInterface {
 
   address[] usersAddresses;
   uint public potTotalValue;
-  uint public count = 1;
   uint public timeToWait = 3;
   uint public startTime = 0; 
+  address founder = admin;
 
   uint x = 90;
   uint y = 5;
@@ -51,20 +51,21 @@ contract RaffleSep is VRFv2Consumer, AutomationCompatibleInterface {
   // MyGovernor(_token)
   constructor(address coordinatorAddress) VRFv2Consumer(11065, coordinatorAddress) {
     admin = msg.sender;
+    founder = msg.sender;
     dataFeed = AggregatorV3Interface(0x986b5E1e1755e3C2440e960477f25201B0a8bbD4);
   }
 
   receive() external payable {}
 
-  // function _executeResult(uint[] memory values) internal override {
-  //   x = values[0]; 
-  //   y = values[1]; 
-  //   z = values[2]; 
-  // }
+  function _execute(uint[] memory values) internal override {
+    x = values[0]; 
+    y = values[1]; 
+    z = values[2]; 
+  }
 
   function _onlyAdmin() internal override onlyAdmin{} 
   function _timeCheck() public view override {
-    require(block.timestamp > startTime + timeToWait, "Time is not to be wasted, gamble more while you still can!");
+    require(startTime != 0 && block.timestamp > startTime + timeToWait, "Time is not to be wasted, gamble more while you still can!");
   }
 
   modifier onlyAdmin {
@@ -80,6 +81,9 @@ contract RaffleSep is VRFv2Consumer, AutomationCompatibleInterface {
   }
   function setOutAddress(address _address) external onlyAdmin{
     outAdrress = _address;
+  }
+  function setFounder(address _address) external onlyAdmin{
+    founder = _address;
   }
   function addToWhiteList(address _address, uint _decimals, address _feedAddress) external onlyAdmin {
     availableTokens[_address] = true;
@@ -101,7 +105,7 @@ contract RaffleSep is VRFv2Consumer, AutomationCompatibleInterface {
     conectToToken(_tokenAddress);
     require(tokenContract.transferFrom(msg.sender, address(this), _amount), "Token transfer failed");
 
-    if(potTotalValue == 0) {
+    if(startTime == 0) {
       startTime = block.timestamp;
     }
 
@@ -162,8 +166,9 @@ contract RaffleSep is VRFv2Consumer, AutomationCompatibleInterface {
     }
 
     IERC20 tContract = IERC20(outAdrress); 
-    
-    tContract.transfer(winner, tContract.balanceOf(address(this)));
+
+    tContract.transfer(winner, potTotalValue * x / 100);
+    tContract.transfer(founder, potTotalValue * y / 100);
 
     count++;
     delete usersAddresses;
@@ -181,7 +186,7 @@ contract RaffleSep is VRFv2Consumer, AutomationCompatibleInterface {
       override
       returns (bool upkeepNeeded, bytes memory performData)
   {
-      upkeepNeeded = block.timestamp > startTime + timeToWait;
+      upkeepNeeded = startTime != 0 && block.timestamp > startTime + timeToWait ;
       // The checkData is defined when the Upkeep was registered.
       return (upkeepNeeded, performData);
   }

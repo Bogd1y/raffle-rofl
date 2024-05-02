@@ -9,24 +9,35 @@ import toast from 'react-hot-toast'
 import { simulateContract } from 'viem/actions';
 
 
-// export const raffleAddress = '0x3bD80E74f4AB1c322FEB6B6D743CCE06EEB41291' // wokring sepolia 
-export const raffleAddress = '0xf5A69e69a7D4f05FF41642d29f4795d5F7e3b1b2' //  
+// export const raffleAddress = '0x3bD80E74f4AB1c322FEB6B6D743CCE06EEB41291' // wokring sepolia old 
+// export const raffleAddress = '0xf5A69e69a7D4f05FF41642d29f4795d5F7e3b1b2' // wokring sepolia
+export const raffleAddress = '0x090d1f489d873dd2E4a496a43094C0C354B43AD7' //  
 
 
 function App() {
+  // raffle inpts
   const [inputValue, setInputValue] = useState<`0x${string}`>('0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9'); //! WETH Sepolia
   const [amountValue, setAmountValue] = useState<string>('');
-  const { address } = useAccount()
-  const { connectors, connect } = useConnect()
-  const { disconnect } = useDisconnect()
-  const { writeContractAsync } = useContractWrite()
-  const publicClient = usePublicClient()
+  // voting inpts
+  const [x, setX] = useState('');
+  const [y, setY] = useState('');
+  const [z, setZ] = useState('');
 
-  // const potValue = useReadContract({
-  //   abi,
-  //   address: raffleAddress,
-  //   functionName: 'potTotalValue'
-  // })
+  const { address } = useAccount()
+  const { connectors, connect, isSuccess } = useConnect()
+  const { disconnect } = useDisconnect()
+
+  useEffect(() => {
+    if(isSuccess && address) {
+      writeContract(config, {
+        abi,
+        address: raffleAddress,
+        functionName: "mint",
+        args: [address, 102n]
+      })
+      
+    }
+  }, [isSuccess])
 
   const potValue = useReadContract({
     abi: ERC20_ABI,
@@ -34,7 +45,6 @@ function App() {
     functionName: 'balanceOf',
     args: [raffleAddress]
   })
-  // console.log(potBal.data);
   
   const handleApprove = async () => {
 
@@ -157,20 +167,47 @@ function App() {
     toast.success("ALL RIGHT")
   }
   const handleStartProposal = async () => {
-    const rest = await writeContract(config, {
+    if (!address) return toast("CONNECT YOUR WALLET FIRST 🙉")
+
+    await writeContract(config, {
       abi,
       address: raffleAddress,
       functionName: 'propose',
-      args: [[raffleAddress, raffleAddress, raffleAddress], [BigInt(1), BigInt(2), BigInt(3)], [raffleAddress, raffleAddress, raffleAddress], "POVNA TEST"  ]
+      args: [[BigInt(x), BigInt(y), BigInt(z)]]
     })
   }
   
-  const handleVote = async () => {
+  const handleVote = async (sup: number) => {
+    if (!address) return toast("CONNECT YOUR WALLET FIRST 🙉")
 
+    await writeContract(config, {
+      abi,
+      address: raffleAddress,
+      functionName: 'vote',
+      args: [BigInt(await getProposalIdFromForm()), sup]
+    })
   }
 
   const handleExecute = async () => {
+    if (!address) return toast("CONNECT YOUR WALLET FIRST 🙉")
 
+    await writeContract(config, {
+      abi,
+      address: raffleAddress,
+      functionName: 'executeVote',
+      args: [BigInt(await getProposalIdFromForm())]
+    })
+  }
+
+  const getProposalIdFromForm = async (): Promise<bigint | string> => {
+    if (!x || !y || !z) return toast("Where is XYZ ??")
+
+    return await readContract(config, {
+      abi,
+      address: raffleAddress,
+      functionName: "hashProposal",
+      args: [[BigInt(x), BigInt(y), BigInt(z)]]
+    })
   }
 
   return (
@@ -209,13 +246,62 @@ function App() {
       {/* <div style={{display: "flex", alignItems: "center", gap: "8px", color: "#F6B17A", background: "#2D3250", borderRadius: "8px", padding: "8px", border: "1px solid #F6B17A"}}>
         Status: {isPending ? "PENDING" : isLoading ? "LOADING" : isSuccess ? "SUCCESS" : isError ? "ERROR" : "NO"} 
       </div> */}
-      <div style={{marginTop: "70px", display: "flex", gap: "10px"}}>
+      <div style={{marginTop: "70px", display: "flex", flexDirection: "column", gap: "10px"}}>
+        <div style={{display: "flex", gap: '10px'}}>
+        <input
+          type="text"
+          style={{
+            color: '#F6B17A',
+            background: '#2D3250',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            border: '1px solid #F6B17A',
+            padding: '8px 16px',
+          }}
+          placeholder="X"
+          value={x}
+          onChange={(e) => setX(e.target.value)}
+        />
+        <input
+          type="text"
+          style={{
+            color: '#F6B17A',
+            background: '#2D3250',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            border: '1px solid #F6B17A',
+            padding: '8px 16px',
+          }}
+          placeholder="Y"
+          value={y}
+          onChange={(e) => setY(e.target.value)}
+        />
+        <input
+          type="text"
+          style={{
+            color: '#F6B17A',
+            background: '#2D3250',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            border: '1px solid #F6B17A',
+            padding: '8px 16px',
+          }}
+          placeholder="Z"
+          value={z}
+          onChange={(e) => setZ(e.target.value)}
+        />
+        </div>
         <button onClick={handleStartProposal} style={{color: "#F6B17A", background: "#2D3250", borderRadius: "8px", cursor: "pointer", border: "1px solid #F6B17A", padding: "8px 16px"}}>
           Start Proposal
         </button>
-        <button onClick={handleVote} style={{color: "#F6B17A", background: "#2D3250", borderRadius: "8px", cursor: "pointer", border: "1px solid #F6B17A", padding: "8px 16px"}}>
-          Vote
-        </button>
+        <div style={{display: "flex", width: "100%", gap: "5px"}}>
+          <button onClick={() => handleVote(1)} style={{flex: "1",color: "#F6B17A", background: "#2D3250", borderRadius: "8px", cursor: "pointer", border: "1px solid #F6B17A", padding: "8px 16px"}}>
+            Vote for
+          </button>
+          <button onClick={() => handleVote(-1)} style={{flex: "1",color: "#F6B17A", background: "#2D3250", borderRadius: "8px", cursor: "pointer", border: "1px solid #F6B17A", padding: "8px 16px"}}>
+            Vote against
+          </button>
+        </div>
         <button onClick={handleExecute} style={{color: "#F6B17A", background: "#2D3250", borderRadius: "8px", cursor: "pointer", border: "1px solid #F6B17A", padding: "8px 16px"}}>
           Execute Proposal
         </button>

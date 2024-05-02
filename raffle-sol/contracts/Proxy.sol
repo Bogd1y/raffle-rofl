@@ -19,7 +19,14 @@ contract Proxy {
   
   function _delegate() private returns(bytes memory){
     (bool ok, bytes memory data ) = impl.delegatecall(msg.data);
-    require(ok, "porazka :(");
+
+    if (!ok) {
+      if (data.length == 0) revert("No error message");
+      assembly {
+          revert(add(32, data), mload(data))
+      }
+    }
+    
     return data;
   }
 
