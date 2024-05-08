@@ -8,7 +8,7 @@ import { getAddress, parseGwei, getContract, parseAbiItem } from "viem";
 import { ERC20_ABI } from "./ABI";
 import { ABI_UNI_SWAP_ROUTER_MAINNET } from "./ABI_SRA";
 import { abi as WETH_ABI } from "./WETH_ABI";
-import { keccak256 } from 'viem'
+import { keccak256, encodeFunctionData } from 'viem'
 import { mine, mineUpTo } from "@nomicfoundation/hardhat-network-helpers";
 import {increaseTo} from "./helpers/timeOPZ"
 import { setNextBlockTimestamp } from "@nomicfoundation/hardhat-network-helpers/dist/src/helpers/time";
@@ -377,14 +377,18 @@ describe.only("RaffleSepolia", function () {
   describe("Govern", function () {
     it("nominal flow", async function () {
       const { signers, RaffleContract, swapRouterContract, ethAddress, ethTokenContract, ownerAddress, raffleAddress } = await loadFixture(deployOneYearLockFixture)
-
-    try {
       
-      const proposalParams = [10n, 20n, 70n]        
+      // const proposalParams = [10n, 20n, 70n]        
+      const proposalParams = encodeFunctionData({
+        abi: RaffleContract.abi,
+        args: [70n],
+        functionName: "setX"
+      })        
 
-      await expect(RaffleContract.write.propose([proposalParams])).to.be.not.rejected
 
-      const proposalId =  await RaffleContract.read.hashProposal([proposalParams])
+      await expect(RaffleContract.write.propose([[proposalParams]])).to.be.not.rejected
+
+      const proposalId =  await RaffleContract.read.hashProposal([[proposalParams]])
 
       for (const signer of signers) {
         if (signer.account.address == ownerAddress) continue
@@ -402,10 +406,55 @@ describe.only("RaffleSepolia", function () {
       await time.increase(await RaffleContract.read.voteDuration())      
       
       await expect(RaffleContract.write.executeVote([proposalId])).to.be.not.rejected
-    } catch (error) {
-      console.log(error);
-            
-    }      
+
+      expect(await RaffleContract.read.x()).to.be.equal(70n)
+
+    })
+
+    it("nominal flow x3", async function () {
+      const { signers, RaffleContract, swapRouterContract, ethAddress, ethTokenContract, ownerAddress, raffleAddress } = await loadFixture(deployOneYearLockFixture)
+      
+      // const proposalParams = [10n, 20n, 70n]        
+      const proposalParams = encodeFunctionData({
+        abi: RaffleContract.abi,
+        args: [70n],
+        functionName: "setX"
+      })        
+      const proposalParams2 = encodeFunctionData({
+        abi: RaffleContract.abi,
+        args: [15n],
+        functionName: "setY"
+      })      
+      const proposalParams3 = encodeFunctionData({
+        abi: RaffleContract.abi,
+        args: [15n],
+        functionName: "setZ"
+      })
+
+      await expect(RaffleContract.write.propose([[proposalParams, proposalParams2, proposalParams3]])).to.be.not.rejected
+
+      const proposalId =  await RaffleContract.read.hashProposal([[proposalParams, proposalParams2, proposalParams3]])
+
+      for (const signer of signers) {
+        if (signer.account.address == ownerAddress) continue
+
+        expect(RaffleContract.write.mint([signer.account.address, 101n])).to.be.not.rejected;
+
+        expect(RaffleContract.write.vote([proposalId, 1], {
+          account: signer.account
+        })).to.be.not.rejected
+
+      }
+
+      await expect(RaffleContract.write.executeVote([proposalId])).to.be.rejectedWith('Vote is still going')
+
+      await time.increase(await RaffleContract.read.voteDuration())      
+      
+      await expect(RaffleContract.write.executeVote([proposalId])).to.be.not.rejected
+
+      expect(await RaffleContract.read.x()).to.be.equal(70n)
+      expect(await RaffleContract.read.y()).to.be.equal(15n)
+      expect(await RaffleContract.read.z()).to.be.equal(15n)
 
     })
     

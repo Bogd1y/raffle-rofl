@@ -25,7 +25,7 @@ const config: HardhatUserConfig = {
       //   // url: `https://mainnet.infura.io/v3/${INFURA_API_KEY}`,
       //   // blockNumber: 19706187
         url: `https://sepolia.infura.io/v3/${INFURA_API_KEY}`,
-        blockNumber: 5773400
+        // blockNumber: 5773402
       }
     },
     sepolia: {

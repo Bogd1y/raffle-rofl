@@ -18,20 +18,22 @@ contract MyGov is MyToken {
   struct ProposalCore {
     address proposer;
     uint voteStart;
-    uint[] values;
+    bytes[] values;
     int8 votes;
   }
 
   mapping (uint proposalId => ProposalCore) private _proposals;
   mapping (uint count => mapping(address voter => uint proposalId)) hasVoted; // after one option is sellected all votes are anewed
 
+  uint[] proposalIds;  
+
   function hashProposal(
-    uint256[] memory values
+    bytes[] memory values
   ) public pure returns (uint256) {
       return uint256(keccak256(abi.encode(values)));
   }
 
-  function propose( uint256[] memory _values) public returns (uint256) {
+  function propose( bytes[] memory _values) public returns (uint256) {
     require(_proposals[hashProposal(_values)].voteStart == 0, "Such proposal already exsist!");
 
     address proposer = _msgSender();
@@ -39,6 +41,8 @@ contract MyGov is MyToken {
     require(hasVoted[count][proposer] == 0, "You have already voted!"); // wait for vote to be finshed
 
     uint proposalId = hashProposal(_values);
+
+    proposalIds.push(proposalId);
 
     _proposals[proposalId] = ProposalCore({
       proposer: proposer,
@@ -60,7 +64,7 @@ contract MyGov is MyToken {
     address voter = _msgSender();
 
     require(balanceOf(voter) >= minBalanceToVote, "Not enought power!");
-    // require(hasVoted[count][voter] == 0, "You have already voted!"); // wait for vote to be finshed
+    require(hasVoted[count][voter] == 0, "You have already voted!"); // wait for vote to be finshed
 
     _proposals[_proposalId].votes += support;
 
@@ -76,20 +80,21 @@ contract MyGov is MyToken {
 
     _execute(currentProposal.values);
 
-
     count++;
     _proposals[_proposalId] = ProposalCore({
       proposer: address(0),
       voteStart: 0,
-      values:  new uint[](0), 
+      values:  new bytes[](0), 
       votes: 0
     });
 
     emit ProposalEnd(_proposalId);
   }
 
-  function _execute(uint[] memory) internal virtual {
-    
+  function _execute(bytes[] memory _calldata) internal virtual {
+    for (uint i = 0; i < _calldata.length; i++) {
+      address(this).call(_calldata[i]);
+    }
   }
 
   function transfer(address to, uint256 value) public override returns (bool) {
@@ -107,5 +112,17 @@ contract MyGov is MyToken {
     return true;
   }
 
+  function getAllProposals() public view returns (ProposalCore[] memory) {
+    ProposalCore[] memory proposals = new ProposalCore[](proposalIds.length);
+
+    if (proposalIds.length == 0) return proposals;
+
+    uint indx = 0;
+    for (uint i = 0; i < proposalIds.length; i++) {
+      proposals[indx] = _proposals[proposalIds[i]];
+      indx++;
+    }
+    return proposals;
+  }
 
 }

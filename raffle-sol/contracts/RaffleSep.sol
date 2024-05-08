@@ -41,9 +41,19 @@ contract RaffleSep is VRFv2Consumer, AutomationCompatibleInterface, MyGov {
   uint public startTime = 0; 
   address founder = admin;
 
-  uint x = 90;
-  uint y = 5;
-  uint z = 5;
+  uint public x = 90;
+  uint public y = 5;
+  uint public z = 5;
+
+  function setX(uint _x) public onlyThis {
+    x = _x;
+  }
+  function setY(uint _y) public onlyThis {
+    y = _y;
+  }
+  function setZ(uint _z) public onlyThis {
+    z = _z;
+  }
 
   event Deposit(address, uint);
   event Win(address, uint);
@@ -57,11 +67,12 @@ contract RaffleSep is VRFv2Consumer, AutomationCompatibleInterface, MyGov {
 
   receive() external payable {}
 
-  function _execute(uint[] memory values) internal override {
-    x = values[0]; 
-    y = values[1]; 
-    z = values[2]; 
-  }
+  // function _execute(bytes[] memory values) internal override {
+  //   // TODO calldata;
+  //   x = values[0];
+  //   y = values[1];
+  //   z = values[2];
+  // }
 
   function _onlyAdmin() internal override onlyAdmin{} 
   function _timeCheck() public view override {
@@ -70,6 +81,10 @@ contract RaffleSep is VRFv2Consumer, AutomationCompatibleInterface, MyGov {
 
   modifier onlyAdmin {
     require(msg.sender == admin, "You are not him!");
+    _;
+  }
+  modifier onlyThis {
+    require(msg.sender == address(this), "You are not him!");
     _;
   }
 
